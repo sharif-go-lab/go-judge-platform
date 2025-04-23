@@ -2,6 +2,7 @@ package config
 
 import (
 	"log"
+	"strings"
 
 	"github.com/spf13/viper"
 )
@@ -9,8 +10,12 @@ import (
 // Init initializes the configuration
 func Init() {
 	// Set default values
-	viper.SetDefault("server.listen", ":8080")
+	viper.AutomaticEnv()
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 
+	viper.SetDefault("server.listen", ":8080")
+	viper.SetDefault("database.dsn", "postgres://user:pass@localhost:5432/go_judge?sslmode=disable")
+	viper.SetDefault("session.secret", "super-secret-key")
 	// Look for config file
 	viper.SetConfigName("config")
 	viper.SetConfigType("yaml")

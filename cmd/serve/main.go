@@ -3,8 +3,11 @@ package main
 import (
 	"flag"
 	"fmt"
+	"github.com/gin-contrib/sessions"
+	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
 	"github.com/sharif-go-lab/go-judge-platform/internal/config"
+	"github.com/sharif-go-lab/go-judge-platform/internal/db"
 	"github.com/sharif-go-lab/go-judge-platform/internal/handler"
 	"github.com/spf13/viper"
 	"html/template"
@@ -21,10 +24,18 @@ func main() {
 
 	// Initialize configuration
 	config.Init()
+	db.Init()
+
+	// session middleware
+	store := cookie.NewStore([]byte(viper.GetString("session.secret")))
+
+	// load templates and routes as before...
+
 	viper.SetDefault("server.listen", *listenAddr)
 
 	// Set up gin router
 	r := gin.Default()
+	r.Use(sessions.Sessions("go-judge_session", store))
 	r.SetFuncMap(template.FuncMap{
 		"current_year": func() int {
 			return time.Now().Year()

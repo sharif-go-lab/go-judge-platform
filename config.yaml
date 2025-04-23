@@ -1,0 +1,9 @@
+# config.yaml
+server:
+  listen: ":8080"
+
+database:
+  dsn: "host=localhost user=myuser dbname=go_judge sslmode=disable TimeZone=UTC"
+
+session:
+  secret: "a-very-long-random-secret"

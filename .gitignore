@@ -33,3 +33,4 @@ vendor/
 *.env
 .env.*
 docker-compose.override.yml
+Dockerfile
