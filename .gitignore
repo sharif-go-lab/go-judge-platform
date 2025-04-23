@@ -19,6 +19,7 @@ coverage.out
 
 # Dependency directories (if not vendored)
 vendor/
+logic_demo/
 
 # Logs
 *.log
