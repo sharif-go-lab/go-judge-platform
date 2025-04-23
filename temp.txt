@@ -1,0 +1,173 @@
+
+### Online Judge System
+
+In this project, we intend to build a simple online judge system, similar to websites like **Quera** or **Codeforces**, where users can view problems, submit solutions (code), and see the results.
+
+---
+
+### General Features of the Website
+
+1. **Authentication: Login & Registration**
+   - Users must be able to register and log in.
+   - Passwords must be stored **hashed** using the `bcrypt` package and **not retrievable in plain text**. There must be a one-way path from the user’s password to the stored hash.
+
+2. **User Roles (Access Control)**
+   - Two types of users: **Regular user** and **Admin**.
+   - Admin can *publish* questions and change user roles (promote/demote to/from admin).
+   - Access levels must be checked on both **backend** and **frontend** (e.g., admin-only buttons must be hidden from regular users). Proper HTTP status codes must be returned.
+
+3. **Profile Page**
+   - Each user has a profile showing general info (username, submission status, etc.).
+   - Stats include: number of attempted problems, success rate, and number of solved problems.
+   - Admins viewing a profile can change the user’s role from the same page.
+
+4. **Question List**
+   - A list of published questions sorted in **descending order of publish date**.
+   - Must support **pagination** (e.g., 10 questions per page), with page number in query params.
+
+5. **Questions**
+   - Each question has an **owner** (creator).
+   - Initially saved as **draft** until an admin publishes it.
+   - Fields: Title, Statement, Time Limit (ms), Memory Limit (MB), Input Test, Expected Output.
+
+6. **Submissions**
+   - Users can submit **Go** code for problems.
+   - Initial status: *Pending*.
+   - Judge system processes the submission and returns one of:
+     - OK
+     - Compile Error
+     - Wrong Answer
+     - Memory Limit Exceeded
+     - Time Limit Exceeded
+     - Runtime Error
+
+7. **Question and Submission Pages**
+   - Logged-in users can view the question list.
+   - Clicking a question shows its full content.
+   - “Submit Answer” page allows users to upload a file or paste code.
+   - “My Submissions” page shows a history table of all user submissions with their statuses.
+
+8. **Create Question Page**
+   - Any user (admin or regular) can add a new question (saved as draft).
+   - Fields: title, content, time/memory limits, etc.
+
+9. **My Questions**
+   - Users see and edit questions they created.
+   - Admins see **all questions**, with an extra column showing each question’s owner.
+   - Admins can publish/unpublish any question.
+
+10. **Internal APIs**
+    - For processing submissions by a separate process (called the **runner**).
+    - The runner uses these APIs to fetch submission data (code, test cases, limits), run them, and return results to the main service via the same APIs.
+    - These APIs must be secured:
+      - If on another port, **not exposed outside Docker network**.
+      - If on same port, use a **separate token** for runner authentication.
+    - Ensure **concurrency** is handled:
+      - One submission should only be processed by one runner.
+      - Mark as "in-progress" once assigned.
+      - If a runner fails or times out, requeue the submission for another runner.
+      - Submissions failing multiple times should be marked with an error.
+    - Use **transactions** or SQL `SELECT ... FOR UPDATE` to manage concurrency.
+
+---
+
+### Available Commands in the Project’s Executable
+
+- `serve`
+  Starts an HTTP server using a config file (`--listen :8080`).
+  Use `viper` for config reading.
+
+- `code-runner`
+  Compiles and runs submitted **Golang** code.
+  - Must not use more than one CPU, nor access network or file system.
+  - Each execution spins up a **Docker container** with limits:
+    - no root user
+    - memory limit, CPU limit, no network
+  - Use Go’s Docker client to manage containers.
+  - `code-runner` must not access the database.
+
+- `create-admin`
+  Creates an admin user from given username and password (or promotes an existing user).
+
+---
+
+### Group Work: Project Planning
+
+- Split the project into **phases** (either by technical components or product features).
+- Assign **approximate deadlines** to phases.
+- Break each phase into **independent tasks**.
+  - Smaller tasks = better.
+  - Ensure tasks are **parallelizable** for higher productivity.
+- After each phase:
+  - Have a meeting to **review past tasks** and plan for the next.
+  - Use tools like **Trello** or **Jira** to manage tasks.
+
+---
+
+### Suggested Project Phases
+
+#### Phase 1: Front-End (Basic UI in Go using Templates)
+Pages to implement:
+  1. Home / Welcome Page
+  2. Login & Register
+  3. Question List (with Pagination)
+  4. Question Details + Code Submission
+  5. Submission History
+  6. Create Question
+  7. Profile Page
+
+#### Phase 2: Authentication
+- Store passwords hashed with bcrypt.
+- Use **cookies** for session management.
+  - No raw username/password in cookies.
+  - Use secure random tokens or JWT.
+
+#### Phase 3: Database Design
+- Tables: User, Question, Submission, etc.
+- Consider performance:
+  - Use indexes.
+  - Cache counts (e.g., number of solved problems).
+- Use tools like **gorm**, **sqlc**, or **migrate** for migrations.
+
+#### Phase 4: Implementing Site Logic
+- Create/edit/publish questions
+- View questions (with pagination)
+- Submit answers
+- View submissions & profiles
+- Admin features: manage roles, publish questions
+
+#### Phase 5: Judge Service Integration
+- Implement `code-runner` service.
+- Judge service fetches pending submissions and updates the DB with results.
+- Optionally cache compiled binaries for faster judging.
+
+#### Phase 6: Deployment with Docker
+- Write Dockerfiles
+- Use `docker-compose` to spin up:
+  - main service (`serve`)
+  - `code-runner`
+  - database
+  - judge runner
+- Only expose the `serve` service (e.g., port 80).
+- Mount Docker socket inside judge container:
+  `/var/run/docker.sock:/var/run/docker.sock`
+
+#### Phase 7: Load Testing
+- Fill the DB with many users and submissions.
+- Run multiple judge services simultaneously.
+- Ensure query speed & index efficiency.
+- Provide a script/tool for repeatable load testing.
+
+---
+
+### Final Submission
+
+Submit a **ZIP file** containing:
+1. Project source code (same as GitHub)
+2. Team member list (name, surname, student ID)
+3. Setup guide (how to run services, Docker commands, etc.)
+4. Load test script/tool
+
+
+read this carfully and step by step I want you to help me to implement this project firs lets do the phaze 1 but remember do not complecate the project just do it az simple as possible and for now just do the phaze one
+but remeber to complete eatch file and if you'll hit the limit dont send uncompleted file and tell me to say continue in the chat

@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ .title }} - Online Judge</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+</head>
+<body>
+<header>
+    <nav>
+        <div class="logo">
+            <a href="/">Online Judge</a>
+        </div>
+        <ul class="nav-links">
+            <li><a href="/">Home</a></li>
+            <li><a href="/questions">Questions</a></li>
+            <!-- These links will be shown/hidden based on auth status in later phases -->
+            <li><a href="/submissions">My Submissions</a></li>
+            <li><a href="/questions/my">My Questions</a></li>
+            <li><a href="/questions/create">Create Question</a></li>
+            <li><a href="/profile/user1">Profile</a></li>
+            <li><a href="/auth/login">Login</a></li>
+            <li><a href="/auth/register">Register</a></li>
+            <li><a href="/auth/logout">Logout</a></li>
+        </ul>
+    </nav>
+</header>
+
+<main>
+    <div class="container">
+        <h1>{{ .title }}</h1>
+        <div class="my-questions">
+            <table>
+                <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Title</th>
+                    <th>Status</th>
+                    <th>Created</th>
+                    <th>Actions</th>
+                </tr>
+                </thead>
+                <tbody>
+                {{ range .questions }}
+                <tr>
+                    <td>{{ .ID }}</td>
+                    <td><a href="/questions/{{ .ID }}">{{ .Title }}</a></td>
+                    <td>{{ if .IsPublished }}Published{{ else }}Draft{{ end }}</td>
+                    <td>{{ .CreatedAt.Format "2006-01-02" }}</td>
+                    <td class="actions">
+                        <a href="/questions/edit/{{ .ID }}" class="btn btn-sm btn-outline">Edit</a>
+                        {{ if not .IsPublished }}
+                        <!-- This button will be visible only to admins in later phases -->
+                        <form action="/questions/publish/{{ .ID }}" method="POST" class="inline">
+                            <button type="submit" class="btn btn-sm btn-success">Publish</button>
+                        </form>
+                        {{ else }}
+                        <!-- This button will be visible only to admins in later phases -->
+                        <form action="/questions/unpublish/{{ .ID }}" method="POST" class="inline">
+                            <button type="submit" class="btn btn-sm btn-danger">Unpublish</button>
+                        </form>
+                        {{ end }}
+                    </td>
+                </tr>
+                {{ end }}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</main>
+
+<footer>
+    <div class="container">
+        <p>&copy; {{ current_year }} Online Judge System</p>
+    </div>
+</footer>
+
+<script src="/static/js/main.js"></script>
+</body>
+</html>

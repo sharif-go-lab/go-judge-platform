@@ -1,0 +1,34 @@
+{{ define "index.html" }}
+{{ template "base.html" . }}
+{{ end }}
+
+{{ define "content" }}
+<div class="home-page">
+    <section class="welcome">
+        <h2>Welcome to Online Judge System</h2>
+        <p>Improve your coding skills by solving problems and competing with others.</p>
+        <div class="cta-buttons">
+            <a href="/questions" class="btn btn-primary">Browse Questions</a>
+            <a href="/auth/register" class="btn btn-secondary">Sign Up</a>
+        </div>
+    </section>
+
+    <section class="features">
+        <h2>Features</h2>
+        <div class="feature-grid">
+            <div class="feature">
+                <h3>Practice Coding</h3>
+                <p>Solve different types of programming problems to enhance your skills.</p>
+            </div>
+            <div class="feature">
+                <h3>Create Questions</h3>
+                <p>Create your own questions for others to solve.</p>
+            </div>
+            <div class="feature">
+                <h3>Track Progress</h3>
+                <p>Monitor your progress and see how you improve over time.</p>
+            </div>
+        </div>
+    </section>
+</div>
+{{ end }} 

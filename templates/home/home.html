@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ .title }} - Online Judge</title>
+    <link rel="stylesheet" href="/css/main.css">
+</head>
+<body>
+<header>
+    <nav>
+        <div class="logo">
+            <a href="/static">Online Judge</a>
+        </div>
+        <ul class="nav-links">
+            <li><a href="/static">Home</a></li>
+            <li><a href="/questions">Questions</a></li>
+            <!-- These links will be shown/hidden based on auth status in later phases -->
+            <li><a href="/submissions">My Submissions</a></li>
+            <li><a href="/questions/my">My Questions</a></li>
+            <li><a href="/questions/create">Create Question</a></li>
+            <li><a href="/profile/user1">Profile</a></li>
+            <li><a href="/auth/login">Login</a></li>
+            <li><a href="/auth/register">Register</a></li>
+            <li><a href="/auth/logout">Logout</a></li>
+        </ul>
+    </nav>
+</header>
+
+<main>
+    <div class="container">
+        <h1>{{ .title }}</h1>
+        <div class="home-page">
+            <section class="welcome">
+                <h2>Welcome to Online Judge System</h2>
+                <p>Improve your coding skills by solving problems and competing with others.</p>
+                <div class="cta-buttons">
+                    <a href="/questions" class="btn btn-primary">Browse Questions</a>
+                    <a href="/auth/register" class="btn btn-secondary">Sign Up</a>
+                </div>
+            </section>
+
+            <section class="features">
+                <h2>Features</h2>
+                <div class="feature-grid">
+                    <div class="feature">
+                        <h3>Practice Coding</h3>
+                        <p>Solve different types of programming problems to enhance your skills.</p>
+                    </div>
+                    <div class="feature">
+                        <h3>Create Questions</h3>
+                        <p>Create your own questions for others to solve.</p>
+                    </div>
+                    <div class="feature">
+                        <h3>Track Progress</h3>
+                        <p>Monitor your progress and see how you improve over time.</p>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+</main>
+
+<footer>
+    <div class="container">
+        <p>&copy; {{ current_year }} Online Judge System</p>
+    </div>
+</footer>
+
+<script src="/js/main.js"></script>
+</body>
+</html>
