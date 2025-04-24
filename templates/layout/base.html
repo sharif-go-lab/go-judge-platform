@@ -1,5 +1,5 @@
 {{ define "base.html" }}
-<!DOCTYPE html>
+<!--<!DOCTYPE html>-->
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -10,22 +10,27 @@
 <body>
 <header>
     <nav>
-        <div class="logo">
-            <a href="/">Online Judge</a>
-        </div>
         <ul class="nav-links">
             <li><a href="/">Home</a></li>
             <li><a href="/questions">Questions</a></li>
-            <!-- These links will be shown/hidden based on auth status in later phases -->
+
+            {{ if .currentUser }}  <!-- user is logged in -->
             <li><a href="/submissions">My Submissions</a></li>
             <li><a href="/questions/my">My Questions</a></li>
             <li><a href="/questions/create">Create Question</a></li>
-            <li><a href="/profile/user1">Profile</a></li>
+            <li><a href="/profile/{{ .currentUser.Username }}">Profile</a></li>
+            {{ if .currentUser.IsAdmin }}   <!-- only admins see this -->
+            <li><a href="/admin">Admin Panel</a></li>
+            {{ end }}
+            <li><a href="/auth/logout">Logout</a></li>
+
+            {{ else }}                 <!-- not logged in -->
             <li><a href="/auth/login">Login</a></li>
             <li><a href="/auth/register">Register</a></li>
-            <li><a href="/auth/logout">Logout</a></li>
+            {{ end }}
         </ul>
     </nav>
+
 </header>
 
 <main>

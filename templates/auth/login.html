@@ -12,6 +12,7 @@
         <div class="logo">
             <a href="/">Online Judge</a>
         </div>
+
         <ul class="nav-links">
             <li><a href="/">Home</a></li>
             <li><a href="/questions">Questions</a></li>
@@ -43,7 +44,13 @@
                 <div class="form-actions">
                     <button type="submit" class="btn btn-primary">Login</button>
                 </div>
+
             </form>
+            {{- if .error }}
+            <div class="error-message">
+               <p> {{ .error }} <p>
+                {{- end }}
+            </div>
             <div class="auth-links">
                 <p>Don't have an account? <a href="/auth/register">Register</a></p>
             </div>
