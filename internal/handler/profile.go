@@ -1,36 +1,66 @@
 package handler
 
 import (
+	"fmt"
+	"github.com/gin-contrib/sessions"
 	"net/http"
-	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/sharif-go-lab/go-judge-platform/internal/db"
 	"github.com/sharif-go-lab/go-judge-platform/internal/model"
 )
 
-// ProfileHandler displays a user's profile
+// ProfileHandler displays a user's profile pulled from the database
 func ProfileHandler(c *gin.Context) {
 	username := c.Param("username")
-
-	// For Phase 1, generate a mock user profile
-	user := model.User{
-		ID:        1,
-		Username:  username,
-		Email:     username + "@example.com",
-		IsAdmin:   false,
-		CreatedAt: time.Now().AddDate(0, -3, 0), // 3 months ago
+	if username == "" {
+		usernameStr := sessions.Default(c).Get("username")
+		if usernameStr == nil {
+			c.HTML(http.StatusUnauthorized, "error.html", gin.H{
+				"title":   "Unauthorized User",
+				"message": "You should login to see your profile",
+			})
+			return
+		}
+		username = usernameStr.(string)
 	}
 
-	// Mock stats
-	stats := gin.H{
-		"attempted":   15,
-		"solved":      10,
-		"successRate": 66.67, // 10/15 * 100
+	// Fetch user by username
+	var user model.User
+	if err := db.DB.Where("username = ?", username).First(&user).Error; err != nil {
+		// user not found: show 404 page
+		c.HTML(http.StatusNotFound, "error.html", gin.H{
+			"title":   "User Not Found",
+			"message": "The requested user does not exist.",
+		})
+		return
 	}
 
+	// Compute stats: attempted and solved submissions
+	var attempted int64
+	db.DB.Model(&model.Submission{}).
+		Where("user_id = ?", user.ID).
+		Count(&attempted)
+
+	var solved int64
+	db.DB.Model(&model.Submission{}).
+		Where("user_id = ? AND status = ?", user.ID, model.StatusOK).
+		Count(&solved)
+
+	// Calculate success rate
+	var successRate float64
+	if attempted > 0 {
+		successRate = (float64(solved) / float64(attempted)) * 100
+	}
+
+	// Pass data to template
 	c.HTML(http.StatusOK, "view.html", gin.H{
-		"title": username + "'s Profile",
+		"title": user.Username + "'s Profile",
 		"user":  user,
-		"stats": stats,
+		"stats": gin.H{
+			"attempted":   attempted,
+			"solved":      solved,
+			"successRate": fmt.Sprintf("%.2f", successRate),
+		},
 	})
 }

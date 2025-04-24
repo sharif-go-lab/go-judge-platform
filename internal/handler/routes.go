@@ -38,5 +38,6 @@ func RegisterRoutes(r *gin.Engine) {
 	}
 
 	// Profile routes
+	r.GET("/profile", ProfileHandler)
 	r.GET("/profile/:username", ProfileHandler)
 }

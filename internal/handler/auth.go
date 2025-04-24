@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"log"
 	"net/http"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 
 // LoginForm binds login inputs
 type LoginForm struct {
+<<<<<<< HEAD
 	Username string `form:"username" binding:"required"`
 	Password string `form:"password" binding:"required"`
 }
@@ -30,15 +32,41 @@ func LoginPageHandler(c *gin.Context) {
 	c.HTML(http.StatusOK, "login.html", gin.H{"title": "Login"})
 }
 
+=======
+	Username string `form:"username" binding:"required"` // can be username or email
+	Password string `form:"password" binding:"required"`
+}
+
+// RegisterForm binds registration inputs
+type RegisterForm struct {
+	Username string `form:"username" binding:"required,alphanum"`
+	Email    string `form:"email" binding:"required,email"`
+	Password string `form:"password" binding:"required,min=6"`
+}
+
+// LoginPageHandler renders the login form
+func LoginPageHandler(c *gin.Context) {
+	c.HTML(http.StatusOK, "login.html", gin.H{"title": "Login"})
+}
+
+>>>>>>> f9a6c9b (DataBase updated)
 // LoginHandler processes login submissions
 func LoginHandler(c *gin.Context) {
 	var form LoginForm
 	if err := c.ShouldBind(&form); err != nil {
+<<<<<<< HEAD
 		c.HTML(http.StatusBadRequest, "login.html", gin.H{"error": "All fields required"})
+=======
+		c.HTML(http.StatusBadRequest, "login.html", gin.H{
+			"title": "Login",
+			"error": "All fields are required",
+		})
+>>>>>>> f9a6c9b (DataBase updated)
 		return
 	}
 
 	var user model.User
+<<<<<<< HEAD
 	if err := db.DB.Where("username = ?", form.Username).First(&user).Error; err != nil {
 		c.HTML(http.StatusUnauthorized, "login.html", gin.H{"error": "Invalid credentials"})
 		return
@@ -46,16 +74,46 @@ func LoginHandler(c *gin.Context) {
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(form.Password)); err != nil {
 		c.HTML(http.StatusUnauthorized, "login.html", gin.H{"error": "Invalid credentials"})
+=======
+	// ─── KEY CHANGE #1: allow lookup by username OR email ────────────────
+	if err := db.DB.
+		Where("username = ? OR email = ?", form.Username, form.Username).
+		First(&user).Error; err != nil {
+		c.HTML(http.StatusUnauthorized, "login.html", gin.H{
+			"title": "Login",
+			"error": "Invalid credentials",
+		})
+		return
+	}
+
+	// compare bcrypt hashes
+	if err := bcrypt.CompareHashAndPassword(
+		[]byte(user.PasswordHash),
+		[]byte(form.Password),
+	); err != nil {
+		c.HTML(http.StatusUnauthorized, "login.html", gin.H{
+			"title": "Login",
+			"error": "Invalid credentials",
+		})
+>>>>>>> f9a6c9b (DataBase updated)
 		return
 	}
 
 	// set session values
 	sess := sessions.Default(c)
+<<<<<<< HEAD
+=======
+	sess.Set("username", user.Username)
+>>>>>>> f9a6c9b (DataBase updated)
 	sess.Set("user_id", user.ID)
 	sess.Set("is_admin", user.IsAdmin)
 	sess.Save()
 
+<<<<<<< HEAD
 	c.Redirect(http.StatusSeeOther, "/questions")
+=======
+	c.Redirect(http.StatusSeeOther, "/profile")
+>>>>>>> f9a6c9b (DataBase updated)
 }
 
 // RegisterPageHandler renders the registration form
@@ -65,6 +123,7 @@ func RegisterPageHandler(c *gin.Context) {
 
 // RegisterHandler processes registration submissions
 func RegisterHandler(c *gin.Context) {
+<<<<<<< HEAD
 	var form RegisterForm
 	if err := c.ShouldBind(&form); err != nil {
 		c.HTML(http.StatusBadRequest, "register.html", gin.H{"error": "All fields required"})
@@ -106,6 +165,54 @@ func RegisterHandler(c *gin.Context) {
 	sess.Save()
 
 	c.Redirect(http.StatusSeeOther, "/questions")
+=======
+	// ─── KEY CHANGE #2: bind to your RegisterForm type ───────────────────
+	var form RegisterForm
+	if err := c.ShouldBind(&form); err != nil {
+		log.Println(err.Error())
+		c.HTML(http.StatusBadRequest, "register.html", gin.H{
+			"title": "Register",
+			"error": "All fields are required and must be valid",
+		})
+		return
+	}
+
+	// hash the password
+	hash, err := bcrypt.GenerateFromPassword([]byte(form.Password), bcrypt.DefaultCost)
+	if err != nil {
+		log.Println(err.Error())
+		c.HTML(http.StatusInternalServerError, "register.html", gin.H{
+			"title": "Register",
+			"error": "Internal error, please try again",
+		})
+		return
+	}
+
+	// construct the new user record
+	user := model.User{
+		Username:     form.Username,
+		Email:        form.Email,
+		PasswordHash: string(hash),
+		IsAdmin:      false,
+		CreatedAt:    time.Now(),
+	}
+
+	// write to database
+	if err := db.DB.Create(&user).Error; err != nil {
+		log.Println(err.Error())
+		c.HTML(http.StatusInternalServerError, "register.html", gin.H{
+			"title": "Register",
+			"error": "Could not create user (maybe username or email already exists)",
+		})
+		return
+	}
+
+	log.Printf("[INFO] new user created: id=%d username=%q email=%q\n",
+		user.ID, user.Username, user.Email)
+
+	// redirect to login page on success
+	c.Redirect(http.StatusSeeOther, "/profile")
+>>>>>>> f9a6c9b (DataBase updated)
 }
 
 // LogoutHandler clears the session and redirects home

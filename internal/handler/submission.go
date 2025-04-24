@@ -72,19 +72,20 @@ func getMockSubmissions() []model.Submission {
 	submissions := make([]model.Submission, 10)
 	for i := 0; i < 10; i++ {
 		submissions[i] = model.Submission{
-			ID:          uint(i + 1),
-			QuestionID:  uint((i % 5) + 1),
-			UserID:      1,
-			Code:        "package main\n\nfunc main() {\n\t// Some code\n}",
-			Language:    "go",
-			Status:      statuses[i%len(statuses)],
-			CreatedAt:   time.Now().AddDate(0, 0, -i),
-			ProcessedAt: time.Now().AddDate(0, 0, -i).Add(time.Second * 30),
+			ID:        uint(i + 1),
+			ProblemID: uint((i % 5) + 1),
+			UserID:    1,
+			Code:      "package main\n\nfunc main() {\n\t// Some code\n}",
+			Language:  "go",
+			Status:    statuses[i%len(statuses)],
+			CreatedAt: time.Now().AddDate(0, 0, -i),
+			UpdatedAt: time.Now().AddDate(0, 0, -i).Add(time.Second * 30),
 		}
 	}
 	return submissions
 }
 
+// internal/handler/submission.go
 func getMockSubmission(id uint) model.Submission {
 	statuses := []string{
 		model.StatusOK,
@@ -97,13 +98,13 @@ func getMockSubmission(id uint) model.Submission {
 	}
 
 	return model.Submission{
-		ID:          id,
-		QuestionID:  uint((int(id) % 5) + 1),
-		UserID:      1,
-		Code:        "package main\n\nimport \"fmt\"\n\nfunc main() {\n\tvar a, b int\n\tfmt.Scan(&a, &b)\n\tfmt.Println(a + b)\n}",
-		Language:    "go",
-		Status:      statuses[int(id)%len(statuses)],
-		CreatedAt:   time.Now().AddDate(0, 0, -int(id)),
-		ProcessedAt: time.Now().AddDate(0, 0, -int(id)).Add(time.Second * 30),
+		ID:        id,
+		ProblemID: uint((int(id) % 5) + 1),
+		UserID:    1,
+		Code:      "package main\n\nimport \"fmt\"\n\nfunc main() {\n\tvar a, b int\n\tfmt.Scan(&a, &b)\n\tfmt.Println(a + b)\n}",
+		Language:  "go",
+		Status:    statuses[int(id)%len(statuses)],
+		CreatedAt: time.Now().AddDate(0, 0, -int(id)),
+		UpdatedAt: time.Now().AddDate(0, 0, -int(id)).Add(time.Second * 30),
 	}
 }

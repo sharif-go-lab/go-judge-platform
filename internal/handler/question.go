@@ -3,36 +3,41 @@ package handler
 import (
 	"net/http"
 	"strconv"
-	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/sharif-go-lab/go-judge-platform/internal/db"
 	"github.com/sharif-go-lab/go-judge-platform/internal/model"
 )
 
-// QuestionListHandler displays the list of questions with pagination
+// QuestionListHandler displays the list of published questions with pagination.
 func QuestionListHandler(c *gin.Context) {
-	// Get page from query params, default to 1
+	// parse page number
 	page, err := strconv.Atoi(c.DefaultQuery("page", "1"))
 	if err != nil || page < 1 {
 		page = 1
 	}
+	const perPage = 10
 
-	// For Phase 1, generate some mock questions
-	questions := getMockQuestions()
+	// count total published problems
+	var total int64
+	db.DB.Model(&model.Problem{}).
+		Where("status = ?", "published").
+		Count(&total)
 
-	// Calculate pagination
-	perPage := 10
-	totalPages := (len(questions) + perPage - 1) / perPage
+	totalPages := int((total + perPage - 1) / perPage)
 
-	startIdx := (page - 1) * perPage
-	endIdx := startIdx + perPage
-	if endIdx > len(questions) {
-		endIdx = len(questions)
-	}
+	// fetch current page
+	var questions []model.Problem
+	db.DB.
+		Where("status = ?", "published").
+		Order("publish_date DESC").
+		Offset((page - 1) * perPage).
+		Limit(perPage).
+		Find(&questions)
 
 	c.HTML(http.StatusOK, "qList.html", gin.H{
 		"title":      "Questions",
-		"questions":  questions[startIdx:endIdx],
+		"questions":  questions,
 		"page":       page,
 		"totalPages": totalPages,
 		"prevPage":   page - 1,
@@ -40,19 +45,23 @@ func QuestionListHandler(c *gin.Context) {
 	})
 }
 
-// QuestionDetailHandler displays a single question
+// QuestionDetailHandler displays a single published question.
 func QuestionDetailHandler(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil || id < 1 {
-		c.HTML(http.StatusNotFound, "error.html", gin.H{
-			"title": "Not Found",
-			"error": "Question not found",
-		})
+		c.HTML(http.StatusNotFound, "error.html", gin.H{"error": "Question not found"})
 		return
 	}
 
-	// For Phase 1, generate a mock question
-	question := getMockQuestion(uint(id))
+	var question model.Problem
+	if err := db.DB.First(&question, id).Error; err != nil {
+		c.HTML(http.StatusNotFound, "error.html", gin.H{"error": "Question not found"})
+		return
+	}
+	if question.Status != "published" {
+		c.HTML(http.StatusForbidden, "error.html", gin.H{"error": "Question not available"})
+		return
+	}
 
 	c.HTML(http.StatusOK, "qDetail.html", gin.H{
 		"title":    question.Title,
@@ -60,63 +69,60 @@ func QuestionDetailHandler(c *gin.Context) {
 	})
 }
 
-// CreateQuestionPageHandler displays the question creation form
+// CreateQuestionPageHandler shows the new-question form.
 func CreateQuestionPageHandler(c *gin.Context) {
-	c.HTML(http.StatusOK, "create.html", gin.H{
-		"title": "Create Question",
-	})
+	c.HTML(http.StatusOK, "create.html", gin.H{"title": "Create Question"})
 }
 
-// CreateQuestionHandler handles question creation form submission
+// CreateQuestionHandler processes the new-question form.
 func CreateQuestionHandler(c *gin.Context) {
-	// For Phase 1, just redirect to the questions page
-	// We'll implement actual question creation in later phases
+	var form struct {
+		Title         string `form:"title" binding:"required"`
+		Statement     string `form:"statement" binding:"required"`
+		TimeLimitMs   int    `form:"time_limit_ms" binding:"required"`
+		MemoryLimitMb int    `form:"memory_limit_mb" binding:"required"`
+	}
+	if err := c.ShouldBind(&form); err != nil {
+		c.HTML(http.StatusBadRequest, "create.html", gin.H{
+			"title": "Create Question",
+			"error": err.Error(),
+		})
+		return
+	}
+
+	user := c.MustGet("user").(model.User)
+	question := model.Problem{
+		OwnerID:       user.ID,
+		Title:         form.Title,
+		Statement:     form.Statement,
+		TimeLimitMs:   form.TimeLimitMs,
+		MemoryLimitMb: form.MemoryLimitMb,
+		Status:        "draft",
+	}
+
+	if err := db.DB.Create(&question).Error; err != nil {
+		c.HTML(http.StatusInternalServerError, "create.html", gin.H{
+			"title": "Create Question",
+			"error": "Failed to save question",
+		})
+		return
+	}
+
 	c.Redirect(http.StatusSeeOther, "/questions")
 }
 
-// MyQuestionsHandler displays questions created by the current user
+// MyQuestionsHandler shows all questions the current user created.
 func MyQuestionsHandler(c *gin.Context) {
-	// For Phase 1, generate some mock questions
-	questions := getMockQuestions()
+	user := c.MustGet("user").(model.User)
+
+	var questions []model.Problem
+	db.DB.
+		Where("owner_id = ?", user.ID).
+		Order("created_at DESC").
+		Find(&questions)
 
 	c.HTML(http.StatusOK, "my-questions.html", gin.H{
 		"title":     "My Questions",
 		"questions": questions,
 	})
-}
-
-// Mock data helpers
-
-func getMockQuestions() []model.Question {
-	questions := make([]model.Question, 25)
-	for i := 0; i < 25; i++ {
-		questions[i] = model.Question{
-			ID:          uint(i + 1),
-			Title:       "Question " + strconv.Itoa(i+1),
-			Statement:   "This is a sample question statement for question " + strconv.Itoa(i+1),
-			TimeLimit:   1000,
-			MemoryLimit: 256,
-			OwnerID:     1,
-			IsPublished: true,
-			PublishedAt: time.Now().AddDate(0, 0, -i),
-			CreatedAt:   time.Now().AddDate(0, 0, -i-1),
-		}
-	}
-	return questions
-}
-
-func getMockQuestion(id uint) model.Question {
-	return model.Question{
-		ID:             id,
-		Title:          "Question " + strconv.Itoa(int(id)),
-		Statement:      "# Question " + strconv.Itoa(int(id)) + "\n\nWrite a program that adds two numbers.\n\n## Input\nTwo integers a and b (1 ≤ a, b ≤ 10^9).\n\n## Output\nThe sum of a and b.",
-		TimeLimit:      1000,
-		MemoryLimit:    256,
-		InputTest:      "1 2",
-		ExpectedOutput: "3",
-		OwnerID:        1,
-		IsPublished:    true,
-		PublishedAt:    time.Now().AddDate(0, 0, -int(id)),
-		CreatedAt:      time.Now().AddDate(0, 0, -int(id)-1),
-	}
 }
