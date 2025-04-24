@@ -12,6 +12,7 @@ import (
 
 // ProfileHandler displays a user's profile pulled from the database
 func ProfileHandler(c *gin.Context) {
+
 	username := c.Param("username")
 	if username == "" {
 		usernameStr := sessions.Default(c).Get("username")

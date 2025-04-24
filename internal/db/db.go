@@ -2,16 +2,6 @@
 package db
 
 import (
-<<<<<<< HEAD
-	"golang.org/x/crypto/bcrypt"
-	"log"
-	"time"
-
-	"github.com/sharif-go-lab/go-judge-platform/internal/model"
-	"github.com/spf13/viper"
-	"gorm.io/driver/postgres"
-	"gorm.io/gorm"
-=======
 	"errors"
 	"log"
 	"time"
@@ -22,54 +12,24 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/sharif-go-lab/go-judge-platform/internal/model"
->>>>>>> f9a6c9b (DataBase updated)
 )
 
 // DB is the global database connection
 var DB *gorm.DB
 
-<<<<<<< HEAD
-// Init connects to the database and runs migrations
-func Init() {
-=======
 // Init connects to the database, runs migrations, and seeds a default admin
 func Init() {
 	// Read DSN
->>>>>>> f9a6c9b (DataBase updated)
 	dsn := viper.GetString("database.dsn")
 	if dsn == "" {
 		log.Fatal("database.dsn is not set in config or ENV")
 	}
-<<<<<<< HEAD
-=======
 
 	// Open GORM connection
->>>>>>> f9a6c9b (DataBase updated)
 	dbConn, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
 		log.Fatalf("failed to connect database: %v", err)
 	}
-<<<<<<< HEAD
-	// Migrate the User model; add others as you go
-	if err := dbConn.AutoMigrate(&model.User{}, &model.Question{}, &model.Submission{}); err != nil {
-		log.Fatalf("failed to migrate tables: %v", err)
-	}
-	var count int64
-	dbConn.Model(&model.User{}).Where("is_admin = ?", true).Count(&count)
-	if count == 0 {
-		// generate a default admin (password: "admin123")
-		hash, _ := bcrypt.GenerateFromPassword([]byte("admin123"), bcrypt.DefaultCost)
-		dbConn.Create(&model.User{
-			Username:  "admin",
-			Email:     "admin@localhost",
-			Password:  string(hash),
-			IsAdmin:   true,
-			CreatedAt: time.Now(),
-		})
-		log.Println("[info] seeded initial admin user with username 'admin'")
-	}
-
-=======
 
 	// Auto-migrate all Phase 3 models
 	if err := dbConn.AutoMigrate(
@@ -125,6 +85,5 @@ func Init() {
 	}
 
 	// Assign global
->>>>>>> f9a6c9b (DataBase updated)
 	DB = dbConn
 }

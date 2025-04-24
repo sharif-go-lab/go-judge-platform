@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"fmt"
+	"github.com/gin-contrib/sessions"
 	"net/http"
 	"strconv"
 
@@ -47,6 +49,12 @@ func QuestionListHandler(c *gin.Context) {
 
 // QuestionDetailHandler displays a single published question.
 func QuestionDetailHandler(c *gin.Context) {
+	sess := sessions.Default(c)
+	userID := sess.Get("user_ID")
+	if userID == nil {
+		c.Redirect(http.StatusSeeOther, "/auth/login")
+		return
+	}
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil || id < 1 {
 		c.HTML(http.StatusNotFound, "error.html", gin.H{"error": "Question not found"})
@@ -71,11 +79,23 @@ func QuestionDetailHandler(c *gin.Context) {
 
 // CreateQuestionPageHandler shows the new-question form.
 func CreateQuestionPageHandler(c *gin.Context) {
+	sess := sessions.Default(c)
+	userID := sess.Get("user_ID")
+	if userID == nil {
+		c.Redirect(http.StatusSeeOther, "/auth/login")
+		return
+	}
 	c.HTML(http.StatusOK, "create.html", gin.H{"title": "Create Question"})
 }
 
 // CreateQuestionHandler processes the new-question form.
 func CreateQuestionHandler(c *gin.Context) {
+	sess := sessions.Default(c)
+	userID := sess.Get("user_ID")
+	if userID == nil {
+		c.Redirect(http.StatusSeeOther, "/auth/login")
+		return
+	}
 	var form struct {
 		Title         string `form:"title" binding:"required"`
 		Statement     string `form:"statement" binding:"required"`
@@ -113,14 +133,19 @@ func CreateQuestionHandler(c *gin.Context) {
 
 // MyQuestionsHandler shows all questions the current user created.
 func MyQuestionsHandler(c *gin.Context) {
-	user := c.MustGet("user").(model.User)
-
+	sess := sessions.Default(c)
+	userID := sess.Get("user_ID")
 	var questions []model.Problem
 	db.DB.
-		Where("owner_id = ?", user.ID).
+		Where("owner_id = ?", userID).
 		Order("created_at DESC").
 		Find(&questions)
+	fmt.Println("%s", userID)
 
+	if userID == nil {
+		c.Redirect(http.StatusSeeOther, "/auth/login")
+		return
+	}
 	c.HTML(http.StatusOK, "my-questions.html", gin.H{
 		"title":     "My Questions",
 		"questions": questions,
