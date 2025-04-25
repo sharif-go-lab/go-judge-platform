@@ -9,20 +9,25 @@
 <body>
 <header>
     <nav>
-        <div class="logo">
-            <a href="/">Online Judge</a>
-        </div>
+        <div class="logo"><a href="/">Online Judge</a></div>
         <ul class="nav-links">
             <li><a href="/">Home</a></li>
             <li><a href="/questions">Questions</a></li>
-            <!-- These links will be shown/hidden based on auth status in later phases -->
+            {{ if .userID }}
             <li><a href="/submissions">My Submissions</a></li>
             <li><a href="/questions/my">My Questions</a></li>
             <li><a href="/questions/create">Create Question</a></li>
             <li><a href="/profile">Profile</a></li>
+            {{ end }}
+            {{ if .isAdmin }}
+            <li><a href="/admin/users">Manage Users</a></li>
+            {{ end }}
+            {{ if not .userID }}
             <li><a href="/auth/login">Login</a></li>
             <li><a href="/auth/register">Register</a></li>
+            {{ else }}
             <li><a href="/auth/logout">Logout</a></li>
+            {{ end }}
         </ul>
     </nav>
 </header>
@@ -39,14 +44,16 @@
                     <p class="role">Role: {{ if .user.IsAdmin }}Admin{{ else }}Regular User{{ end }}</p>
 
                     <!-- This button will be visible only to admins in later phases -->
-                    {{ if not .user.IsAdmin }}
-                    <form action="/profile/promote/{{ .user.Username }}" method="POST">
-                        <button type="submit" class="btn btn-sm btn-primary">Promote to Admin</button>
-                    </form>
-                    {{ else }}
-                    <form action="/profile/demote/{{ .user.Username }}" method="POST">
-                        <button type="submit" class="btn btn-sm btn-danger">Demote to Regular User</button>
-                    </form>
+                    {{ if not (eq .user.ID $.userID) }}
+                        {{ if not .user.IsAdmin }}
+                        <form action="/admin/users/promote/{{ .user.ID }}" method="POST">
+                            <button type="submit" class="btn btn-sm btn-primary">Promote to Admin</button>
+                        </form>
+                        {{ else }}
+                        <form action="/admin/users/demote/{{ .user.ID }}" method="POST">
+                            <button type="submit" class="btn btn-sm btn-danger">Demote to Regular User</button>
+                        </form>
+                        {{ end }}
                     {{ end }}
                 </div>
             </div>
@@ -69,7 +76,6 @@
                 </div>
             </div>
 
-            <!-- Recent activity will be added in later phases -->
         </div>
     </div>
 </main>

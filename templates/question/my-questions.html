@@ -9,20 +9,25 @@
 <body>
 <header>
     <nav>
-        <div class="logo">
-            <a href="/">Online Judge</a>
-        </div>
+        <div class="logo"><a href="/">Online Judge</a></div>
         <ul class="nav-links">
             <li><a href="/">Home</a></li>
             <li><a href="/questions">Questions</a></li>
-            <!-- These links will be shown/hidden based on auth status in later phases -->
+            {{ if .userID }}
             <li><a href="/submissions">My Submissions</a></li>
             <li><a href="/questions/my">My Questions</a></li>
             <li><a href="/questions/create">Create Question</a></li>
             <li><a href="/profile">Profile</a></li>
+            {{ end }}
+            {{ if .isAdmin }}
+            <li><a href="/admin/users">Manage Users</a></li>
+            {{ end }}
+            {{ if not .userID }}
             <li><a href="/auth/login">Login</a></li>
             <li><a href="/auth/register">Register</a></li>
+            {{ else }}
             <li><a href="/auth/logout">Logout</a></li>
+            {{ end }}
         </ul>
     </nav>
 </header>
@@ -46,21 +51,10 @@
                 <tr>
                     <td>{{ .ID }}</td>
                     <td><a href="/questions/{{ .ID }}">{{ .Title }}</a></td>
-                    <td>{{ if .IsPublished }}Published{{ else }}Draft{{ end }}</td>
+                    <td>{{ .Status }}</td>
                     <td>{{ .CreatedAt.Format "2006-01-02" }}</td>
                     <td class="actions">
                         <a href="/questions/edit/{{ .ID }}" class="btn btn-sm btn-outline">Edit</a>
-                        {{ if not .IsPublished }}
-                        <!-- This button will be visible only to admins in later phases -->
-                        <form action="/questions/publish/{{ .ID }}" method="POST" class="inline">
-                            <button type="submit" class="btn btn-sm btn-success">Publish</button>
-                        </form>
-                        {{ else }}
-                        <!-- This button will be visible only to admins in later phases -->
-                        <form action="/questions/unpublish/{{ .ID }}" method="POST" class="inline">
-                            <button type="submit" class="btn btn-sm btn-danger">Unpublish</button>
-                        </form>
-                        {{ end }}
                     </td>
                 </tr>
                 {{ end }}

@@ -20,24 +20,39 @@ func QuestionListHandler(c *gin.Context) {
 	}
 	const perPage = 10
 
+	isAdmin := sessions.Default(c).Get("is_admin").(bool)
+
 	// count total published problems
 	var total int64
-	db.DB.Model(&model.Problem{}).
-		Where("status = ?", "published").
-		Count(&total)
+	if isAdmin == true {
+		db.DB.Model(&model.Problem{}).Count(&total)
+	} else {
+		db.DB.Model(&model.Problem{}).
+			Where("status = ?", "published").
+			Count(&total)
+	}
 
 	totalPages := int((total + perPage - 1) / perPage)
 
 	// fetch current page
 	var questions []model.Problem
-	db.DB.
-		Where("status = ?", "published").
-		Order("publish_date DESC").
-		Offset((page - 1) * perPage).
-		Limit(perPage).
-		Find(&questions)
+	if isAdmin == true {
+		db.DB.Order("publish_date DESC").
+			Offset((page - 1) * perPage).
+			Limit(perPage).
+			Find(&questions)
+	} else {
+		db.DB.Where("status = ?", "published").
+			Order("publish_date DESC").
+			Offset((page - 1) * perPage).
+			Limit(perPage).
+			Find(&questions)
+	}
 
+	userID := sessions.Default(c).Get("user_id")
 	c.HTML(http.StatusOK, "qList.html", gin.H{
+		"userID":     userID,
+		"isAdmin":    isAdmin,
 		"title":      "Questions",
 		"questions":  questions,
 		"page":       page,
@@ -49,29 +64,36 @@ func QuestionListHandler(c *gin.Context) {
 
 // QuestionDetailHandler displays a single published question.
 func QuestionDetailHandler(c *gin.Context) {
-	sess := sessions.Default(c)
-	userID := sess.Get("user_ID")
-	if userID == nil {
-		c.Redirect(http.StatusSeeOther, "/auth/login")
-		return
-	}
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil || id < 1 {
-		c.HTML(http.StatusNotFound, "error.html", gin.H{"error": "Question not found"})
+		c.HTML(http.StatusNotFound, "error.html", gin.H{
+			"title": "Questions",
+			"error": "Question not found",
+		})
 		return
 	}
 
 	var question model.Problem
+	userID := sessions.Default(c).Get("user_id")
+	isAdmin := sessions.Default(c).Get("is_admin").(bool)
 	if err := db.DB.First(&question, id).Error; err != nil {
-		c.HTML(http.StatusNotFound, "error.html", gin.H{"error": "Question not found"})
+		c.HTML(http.StatusNotFound, "error.html", gin.H{
+			"title": "Questions",
+			"error": "Question not found",
+		})
 		return
 	}
-	if question.Status != "published" {
-		c.HTML(http.StatusForbidden, "error.html", gin.H{"error": "Question not available"})
+	if question.Status != "published" && !isAdmin && question.OwnerID != userID {
+		c.HTML(http.StatusForbidden, "error.html", gin.H{
+			"title": "Questions",
+			"error": "Question not available",
+		})
 		return
 	}
 
 	c.HTML(http.StatusOK, "qDetail.html", gin.H{
+		"userID":   userID,
+		"isAdmin":  isAdmin,
 		"title":    question.Title,
 		"question": question,
 	})
@@ -79,45 +101,43 @@ func QuestionDetailHandler(c *gin.Context) {
 
 // CreateQuestionPageHandler shows the new-question form.
 func CreateQuestionPageHandler(c *gin.Context) {
-	sess := sessions.Default(c)
-	userID := sess.Get("user_ID")
-	if userID == nil {
-		c.Redirect(http.StatusSeeOther, "/auth/login")
-		return
-	}
-	c.HTML(http.StatusOK, "create.html", gin.H{"title": "Create Question"})
+	userID := sessions.Default(c).Get("user_id")
+	isAdmin := sessions.Default(c).Get("is_admin").(bool)
+	c.HTML(http.StatusOK, "create.html", gin.H{
+		"userID":  userID,
+		"isAdmin": isAdmin,
+		"title":   "Create Question",
+	})
 }
 
 // CreateQuestionHandler processes the new-question form.
 func CreateQuestionHandler(c *gin.Context) {
-	sess := sessions.Default(c)
-	userID := sess.Get("user_ID")
-	if userID == nil {
-		c.Redirect(http.StatusSeeOther, "/auth/login")
-		return
-	}
 	var form struct {
 		Title         string `form:"title" binding:"required"`
 		Statement     string `form:"statement" binding:"required"`
-		TimeLimitMs   int    `form:"time_limit_ms" binding:"required"`
-		MemoryLimitMb int    `form:"memory_limit_mb" binding:"required"`
+		TimeLimitMs   int    `form:"time_limit" binding:"required"`
+		MemoryLimitMb int    `form:"memory_limit" binding:"required"`
+		SampleInput   string `form:"input_test" binding:"required"`
+		SampleOutput  string `form:"expected_output" binding:"required"`
 	}
 	if err := c.ShouldBind(&form); err != nil {
-		c.HTML(http.StatusBadRequest, "create.html", gin.H{
+		c.HTML(http.StatusBadRequest, "error.html", gin.H{
 			"title": "Create Question",
 			"error": err.Error(),
 		})
 		return
 	}
 
-	user := c.MustGet("user").(model.User)
+	userID := sessions.Default(c).Get("user_id").(uint)
 	question := model.Problem{
-		OwnerID:       user.ID,
+		OwnerID:       userID,
 		Title:         form.Title,
 		Statement:     form.Statement,
 		TimeLimitMs:   form.TimeLimitMs,
 		MemoryLimitMb: form.MemoryLimitMb,
 		Status:        "draft",
+		SampleInput:   form.SampleInput,
+		SampleOutput:  form.SampleOutput,
 	}
 
 	if err := db.DB.Create(&question).Error; err != nil {
@@ -131,10 +151,112 @@ func CreateQuestionHandler(c *gin.Context) {
 	c.Redirect(http.StatusSeeOther, "/questions")
 }
 
+func EditQuestionPageHandler(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.HTML(http.StatusNotFound, "error.html", gin.H{
+			"title": "Edit Question",
+			"error": "Question not found",
+		})
+		return
+	}
+
+	var question model.Problem
+	userID := sessions.Default(c).Get("user_id")
+	isAdmin := sessions.Default(c).Get("is_admin").(bool)
+	if err := db.DB.First(&question, id).Error; err != nil {
+		c.HTML(http.StatusNotFound, "error.html", gin.H{
+			"title": "Edit Question",
+			"error": "Question not found",
+		})
+		return
+	}
+
+	if question.OwnerID != userID && !isAdmin {
+		c.HTML(http.StatusForbidden, "error.html", gin.H{
+			"title": "Edit Question",
+			"error": "Question not available",
+		})
+		return
+	}
+
+	c.HTML(http.StatusOK, "edit.html", gin.H{
+		"userID":   userID,
+		"isAdmin":  isAdmin,
+		"title":    "Edit Question",
+		"question": question,
+	})
+}
+
+func EditQuestionHandler(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.HTML(http.StatusNotFound, "error.html", gin.H{
+			"title": "Edit Question",
+			"error": "Question not found",
+		})
+	}
+
+	var form struct {
+		Title         string `form:"title" binding:"required"`
+		Statement     string `form:"statement" binding:"required"`
+		TimeLimitMs   int    `form:"time_limit" binding:"required"`
+		MemoryLimitMs int    `form:"memory_limit" binding:"required"`
+		SampleInput   string `form:"input_test" binding:"required"`
+		SampleOutput  string `form:"expected_output" binding:"required"`
+	}
+	if err := c.ShouldBind(&form); err != nil {
+		c.HTML(http.StatusBadRequest, "error.html", gin.H{
+			"title": "Edit Question",
+			"error": err.Error(),
+		})
+		return
+	}
+
+	var question model.Problem
+	userID := sessions.Default(c).Get("user_id")
+	isAdmin := sessions.Default(c).Get("is_admin").(bool)
+	if err := db.DB.First(&question, id).Error; err != nil {
+		c.HTML(http.StatusNotFound, "error.html", gin.H{
+			"title": "Edit Question",
+			"error": "Question not found",
+		})
+		return
+	}
+	if question.OwnerID != userID && !isAdmin {
+		c.HTML(http.StatusForbidden, "error.html", gin.H{
+			"title": "Edit Question",
+			"error": "Question not available",
+		})
+	}
+
+	updates := map[string]interface{}{
+		"title":           form.Title,
+		"statement":       form.Statement,
+		"time_limit_ms":   form.TimeLimitMs,
+		"memory_limit_mb": form.MemoryLimitMs,
+		"sample_input":    form.SampleInput,
+		"sample_output":   form.SampleOutput,
+	}
+	if err := db.DB.Model(&question).Updates(updates).Error; err != nil {
+		c.HTML(http.StatusInternalServerError, "error.html", gin.H{
+			"title": "Edit Question",
+			"error": "Failed to save question",
+		})
+		return
+	}
+
+	c.HTML(http.StatusOK, "edit.html", gin.H{
+		"userID":   userID,
+		"isAdmin":  isAdmin,
+		"title":    "Edit Question",
+		"question": question,
+	})
+}
+
 // MyQuestionsHandler shows all questions the current user created.
 func MyQuestionsHandler(c *gin.Context) {
-	sess := sessions.Default(c)
-	userID := sess.Get("user_ID")
+	userID := sessions.Default(c).Get("user_id")
 	var questions []model.Problem
 	db.DB.
 		Where("owner_id = ?", userID).
@@ -142,11 +264,10 @@ func MyQuestionsHandler(c *gin.Context) {
 		Find(&questions)
 	fmt.Println("%s", userID)
 
-	if userID == nil {
-		c.Redirect(http.StatusSeeOther, "/auth/login")
-		return
-	}
+	isAdmin := sessions.Default(c).Get("is_admin").(bool)
 	c.HTML(http.StatusOK, "my-questions.html", gin.H{
+		"userID":    userID,
+		"isAdmin":   isAdmin,
 		"title":     "My Questions",
 		"questions": questions,
 	})

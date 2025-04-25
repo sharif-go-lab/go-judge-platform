@@ -12,7 +12,6 @@ import (
 
 // ProfileHandler displays a user's profile pulled from the database
 func ProfileHandler(c *gin.Context) {
-
 	username := c.Param("username")
 	if username == "" {
 		usernameStr := sessions.Default(c).Get("username")
@@ -54,10 +53,14 @@ func ProfileHandler(c *gin.Context) {
 		successRate = (float64(solved) / float64(attempted)) * 100
 	}
 
+	userID := sessions.Default(c).Get("user_id")
+	isAdmin := sessions.Default(c).Get("is_admin").(bool)
 	// Pass data to template
 	c.HTML(http.StatusOK, "view.html", gin.H{
-		"title": user.Username + "'s Profile",
-		"user":  user,
+		"userID":  userID,
+		"isAdmin": isAdmin,
+		"title":   user.Username + "'s Profile",
+		"user":    user,
 		"stats": gin.H{
 			"attempted":   attempted,
 			"solved":      solved,

@@ -35,31 +35,40 @@
 <main>
     <div class="container">
         <h1>{{ .title }}</h1>
-        <div class="auth-form">
-            {{ if .error }}
-            <div class="error-message">
-                <p>{{ .error }}</p>
-            </div>
+        <table class="table">
+            <thead>
+            <tr>
+                <th>ID</th>
+                <th>Username</th>
+                <th>Email</th>
+                <th>Admin?</th>
+                <th>Actions</th>
+            </tr>
+            </thead>
+            <tbody>
+            {{ range .users }}
+            <tr>
+                <td>{{ .ID }}</td>
+                <td><a href="/profile/{{ .Username }}">{{ .Username }}</a></td>
+                <td>{{ .Email }}</td>
+                <td>{{ if .IsAdmin }}Yes{{ else }}No{{ end }}</td>
+                <td>
+                    {{ if not (eq .ID $.userID) }}
+                        {{ if not .IsAdmin }}
+                        <form action="/admin/users/promote/{{ .ID }}" method="POST" class="inline">
+                            <button type="submit" class="btn btn-sm btn-success">Promote</button>
+                        </form>
+                        {{ else }}
+                        <form action="/admin/users/demote/{{ .ID }}" method="POST" class="inline">
+                            <button type="submit" class="btn btn-sm btn-warning">Demote</button>
+                        </form>
+                        {{ end }}
+                    {{ end }}
+                </td>
+            </tr>
             {{ end }}
-
-            <form action="/auth/login" method="POST">
-                <div class="form-group">
-                    <label for="username">Username</label>
-                    <input type="text" id="username" name="username" required>
-                </div>
-                <div class="form-group">
-                    <label for="password">Password</label>
-                    <input type="password" id="password" name="password" required>
-                </div>
-                <div class="form-actions">
-                    <button type="submit" class="btn btn-primary">Login</button>
-                </div>
-            </form>
-
-            <div class="auth-links">
-                <p>Don't have an account? <a href="/auth/register">Register</a></p>
-            </div>
-        </div>
+            </tbody>
+        </table>
     </div>
 </main>
 

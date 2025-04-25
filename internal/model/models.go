@@ -33,6 +33,8 @@ type Problem struct {
 	MemoryLimitMb int        `gorm:"not null"`
 	Status        string     `gorm:"size:20;default:'draft';index:idx_status_publish,priority:1"`
 	PublishDate   *time.Time `gorm:"index:idx_status_publish,priority:2"`
+	SampleInput   string     `gorm:"type:text;not null"`
+	SampleOutput  string     `gorm:"type:text;not null"`
 	CreatedAt     time.Time
 	UpdatedAt     time.Time
 }

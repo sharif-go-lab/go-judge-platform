@@ -1,5 +1,5 @@
 {{ define "base.html" }}
-<!--<!DOCTYPE html>-->
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -10,27 +10,27 @@
 <body>
 <header>
     <nav>
+        <div class="logo"><a href="/">Online Judge</a></div>
         <ul class="nav-links">
             <li><a href="/">Home</a></li>
             <li><a href="/questions">Questions</a></li>
-
-            {{ if .currentUser }}  <!-- user is logged in -->
+            {{ if .userID }}
             <li><a href="/submissions">My Submissions</a></li>
             <li><a href="/questions/my">My Questions</a></li>
             <li><a href="/questions/create">Create Question</a></li>
-            <li><a href="/profile/{{ .currentUser.Username }}">Profile</a></li>
-            {{ if .currentUser.IsAdmin }}   <!-- only admins see this -->
-            <li><a href="/admin">Admin Panel</a></li>
+            <li><a href="/profile">Profile</a></li>
             {{ end }}
-            <li><a href="/auth/logout">Logout</a></li>
-
-            {{ else }}                 <!-- not logged in -->
+            {{ if .isAdmin }}
+            <li><a href="/admin/users">Manage Users</a></li>
+            {{ end }}
+            {{ if not .userID }}
             <li><a href="/auth/login">Login</a></li>
             <li><a href="/auth/register">Register</a></li>
+            {{ else }}
+            <li><a href="/auth/logout">Logout</a></li>
             {{ end }}
         </ul>
     </nav>
-
 </header>
 
 <main>
