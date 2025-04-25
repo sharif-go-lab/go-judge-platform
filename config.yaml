@@ -1,6 +1,9 @@
 server:
   listen: ":8080"
 
+code_runner:
+  listen: ":9000"
+
 database:
   dsn: "host=db user=myuser password=mysecurepassword dbname=go_judge sslmode=disable TimeZone=UTC"
 

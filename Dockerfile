@@ -1,5 +1,5 @@
 # --- Builder Stage ---
-FROM golang:latest AS builder
+FROM golang:1.24.2 AS builder
 
 # Set working directory
 WORKDIR /code
@@ -18,7 +18,7 @@ RUN CGO_ENABLED=0 \
     go build -ldflags "-s -w" -o server ./cmd/server
 
 # --- Final Stage ---
-FROM alpine:latest
+FROM alpine:3.18
 
 # Install certificates (for HTTPS, external APIs, etc.)
 RUN apk add --no-cache ca-certificates

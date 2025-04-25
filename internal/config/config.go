@@ -14,6 +14,7 @@ func Init() {
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 
 	viper.SetDefault("server.listen", ":8080")
+	viper.SetDefault("code_runner.listen", ":9000")
 	viper.SetDefault("database.dsn", "postgres://user:pass@localhost:5432/go_judge?sslmode=disable")
 	viper.SetDefault("session.secret", "super-secret-key")
 	// Look for config file
