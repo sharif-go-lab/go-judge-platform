@@ -2,9 +2,10 @@ package handler
 
 import (
 	"fmt"
-	"github.com/gin-contrib/sessions"
 	"net/http"
 	"strconv"
+
+	"github.com/gin-contrib/sessions"
 
 	"github.com/gin-gonic/gin"
 	"github.com/sharif-go-lab/go-judge-platform/internal/db"
@@ -20,11 +21,14 @@ func QuestionListHandler(c *gin.Context) {
 	}
 	const perPage = 10
 
-	isAdmin := sessions.Default(c).Get("is_admin").(bool)
+	isAdmin, userID := false, sessions.Default(c).Get("user_id")
+	if sessions.Default(c).Get("is_admin") != nil {
+		isAdmin = sessions.Default(c).Get("is_admin").(bool)
+	}
 
 	// count total published problems
 	var total int64
-	if isAdmin == true {
+	if isAdmin {
 		db.DB.Model(&model.Problem{}).Count(&total)
 	} else {
 		db.DB.Model(&model.Problem{}).
@@ -36,7 +40,7 @@ func QuestionListHandler(c *gin.Context) {
 
 	// fetch current page
 	var questions []model.Problem
-	if isAdmin == true {
+	if isAdmin {
 		db.DB.Order("publish_date DESC").
 			Offset((page - 1) * perPage).
 			Limit(perPage).
@@ -49,7 +53,6 @@ func QuestionListHandler(c *gin.Context) {
 			Find(&questions)
 	}
 
-	userID := sessions.Default(c).Get("user_id")
 	c.HTML(http.StatusOK, "qList.html", gin.H{
 		"userID":     userID,
 		"isAdmin":    isAdmin,
@@ -73,9 +76,12 @@ func QuestionDetailHandler(c *gin.Context) {
 		return
 	}
 
+	isAdmin, userID := false, sessions.Default(c).Get("user_id")
+	if sessions.Default(c).Get("is_admin") != nil {
+		isAdmin = sessions.Default(c).Get("is_admin").(bool)
+	}
+
 	var question model.Problem
-	userID := sessions.Default(c).Get("user_id")
-	isAdmin := sessions.Default(c).Get("is_admin").(bool)
 	if err := db.DB.First(&question, id).Error; err != nil {
 		c.HTML(http.StatusNotFound, "error.html", gin.H{
 			"title": "Questions",

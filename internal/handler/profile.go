@@ -2,8 +2,9 @@ package handler
 
 import (
 	"fmt"
-	"github.com/gin-contrib/sessions"
 	"net/http"
+
+	"github.com/gin-contrib/sessions"
 
 	"github.com/gin-gonic/gin"
 	"github.com/sharif-go-lab/go-judge-platform/internal/db"
@@ -44,7 +45,7 @@ func ProfileHandler(c *gin.Context) {
 
 	var solved int64
 	db.DB.Model(&model.Submission{}).
-		Where("user_id = ? AND status = ?", user.ID, model.StatusOK).
+		Where("user_id = ? AND status = ?", user.ID, "accepted").
 		Count(&solved)
 
 	// Calculate success rate
@@ -53,9 +54,11 @@ func ProfileHandler(c *gin.Context) {
 		successRate = (float64(solved) / float64(attempted)) * 100
 	}
 
-	userID := sessions.Default(c).Get("user_id")
-	isAdmin := sessions.Default(c).Get("is_admin").(bool)
-	// Pass data to template
+	isAdmin, userID := false, sessions.Default(c).Get("user_id")
+	if sessions.Default(c).Get("is_admin") != nil {
+		isAdmin = sessions.Default(c).Get("is_admin").(bool)
+	}
+
 	c.HTML(http.StatusOK, "view.html", gin.H{
 		"userID":  userID,
 		"isAdmin": isAdmin,

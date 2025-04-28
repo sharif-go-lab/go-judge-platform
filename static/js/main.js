@@ -21,10 +21,10 @@ document.addEventListener('DOMContentLoaded', function() {
             let highlighted = code;
 
             // Simple replacement for keywords (a real syntax highlighter would be better)
-            keywords.forEach(function(keyword) {
-                const regex = new RegExp('\\b' + keyword + '\\b', 'g');
-                highlighted = highlighted.replace(regex, '<span class="keyword">' + keyword + '</span>');
-            });
+            // keywords.forEach(function(keyword) {
+            //     const regex = new RegExp('\\b' + keyword + '\\b', 'g');
+            //     highlighted = highlighted.replace(regex, '<span class="keyword">' + keyword + '</span>');
+            // });
 
             // Simple string highlighting
             highlighted = highlighted.replace(/"[^"]*"/g, function(match) {

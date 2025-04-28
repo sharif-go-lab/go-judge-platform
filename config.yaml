@@ -1,8 +1,10 @@
 server:
   listen: ":8080"
+  submission_time_out: 100
 
 code_runner:
   listen: ":9000"
+  judge_dockerfile: "./judge.Dockerfile"
 
 database:
   dsn: "host=db user=myuser password=mysecurepassword dbname=go_judge sslmode=disable TimeZone=UTC"

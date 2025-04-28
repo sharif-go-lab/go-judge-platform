@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ .title }} - Online Judge</title>
     <link rel="stylesheet" href="/static/css/main.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/themes/prism.min.css">
 </head>
 <body>
 <header>
@@ -53,29 +54,8 @@
 
                 <div class="code">
                     <h3>Your Code</h3>
-                    <pre><code>{{ .submission.Code }}</code></pre>
+                    <pre><code class="language-go">{{ .submission.Code }}</code></pre>
                 </div>
-
-                {{ if .submission.ProcessedAt }}
-                <div class="meta">
-                    <span class="label">Processed:</span>
-                    <span class="value">{{ .submission.ProcessedAt.Format "2006-01-02 15:04:05" }}</span>
-                </div>
-                {{ end }}
-
-                {{ if .submission.ErrorMessage }}
-                <div class="error">
-                    <h3>Error</h3>
-                    <pre>{{ .submission.ErrorMessage }}</pre>
-                </div>
-                {{ end }}
-
-                {{ if .submission.Output }}
-                <div class="output">
-                    <h3>Output</h3>
-                    <pre>{{ .submission.Output }}</pre>
-                </div>
-                {{ end }}
             </div>
         </div>
     </div>
@@ -88,5 +68,7 @@
 </footer>
 
 <script src="/static/js/main.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/prism.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/components/prism-go.min.js"></script>
 </body>
 </html>

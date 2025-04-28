@@ -1,10 +1,17 @@
 package handler
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
-	"github.com/gin-contrib/sessions"
+	"io"
+	"log"
 	"net/http"
 	"strconv"
+	"time"
+
+	"github.com/gin-contrib/sessions"
+	"github.com/spf13/viper"
 
 	"github.com/gin-gonic/gin"
 
@@ -85,6 +92,15 @@ func SubmitHandler(c *gin.Context) {
 		return
 	}
 
+	var question model.Problem
+	if err := db.DB.First(&question, questionID).Error; err != nil {
+		c.HTML(http.StatusNotFound, "error.html", gin.H{
+			"title": "My Submissions",
+			"error": "Question not found",
+		})
+		return
+	}
+
 	// Bind submission form (code text)
 	var form struct {
 		Code string `form:"code" binding:"required"`
@@ -104,7 +120,7 @@ func SubmitHandler(c *gin.Context) {
 		ProblemID: uint(questionID),
 		Code:      form.Code,
 		Language:  "Golang",
-		Status:    model.StatusPending,
+		Status:    "Pending",
 	}
 	if err := db.DB.Create(&sub).Error; err != nil {
 		c.HTML(http.StatusInternalServerError, "error.html", gin.H{
@@ -113,6 +129,74 @@ func SubmitHandler(c *gin.Context) {
 		})
 		return
 	}
+
+	go func() {
+		runnerURL := fmt.Sprintf("http://code-runner%s/run", viper.GetString("code_runner.listen"))
+		req := model.RunRequest{
+			Code:          sub.Code,
+			SampleInput:   question.SampleInput,
+			SampleOutput:  question.SampleOutput,
+			TimeLimitMs:   question.TimeLimitMs,
+			MemoryLimitMb: question.MemoryLimitMb,
+		}
+		jsonData, err := json.Marshal(req)
+		if err != nil {
+			log.Println("Failed to marshal submission", sub.ID, "data", err)
+			if err := db.DB.Model(&sub).Update("status", "Failed").Error; err != nil {
+				log.Println("Failed to update submission", sub.ID, "status", "Failed", "error", err)
+			}
+			return
+		}
+
+		resp, err := http.Post(runnerURL, "application/json", bytes.NewBuffer(jsonData))
+		if err != nil {
+			log.Println("Failed to send submission", sub.ID, "request", err)
+			if err := db.DB.Model(&sub).Update("status", "Failed").Error; err != nil {
+				log.Println("Failed to update submission", sub.ID, "status", "Failed", "error", err)
+			}
+			return
+		}
+		defer resp.Body.Close()
+
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			log.Println("Failed to read submission", sub.ID, "response", err)
+			if err := db.DB.Model(&sub).Update("status", "Failed").Error; err != nil {
+				log.Println("Failed to update submission", sub.ID, "status", "Failed", "error", err)
+			}
+			return
+		}
+
+		var result map[string]interface{}
+		if err := json.Unmarshal(body, &result); err != nil {
+			log.Println("Failed to unmarshal submission", sub.ID, "response", err)
+			if err := db.DB.Model(&sub).Update("status", "Failed").Error; err != nil {
+				log.Println("Failed to update submission", sub.ID, "status", "Failed", "error", err)
+			}
+			return
+		}
+
+		if err := db.DB.Model(&sub).Update("status", result["result"]).Error; err != nil {
+			log.Println("Failed to update submission", sub.ID, "status", result["result"], "error", err)
+			return
+		}
+		log.Println("Submission", sub.ID, "status updated", result["result"])
+	}()
+	go func() {
+		timeOut := viper.GetInt("server.submission_time_out")
+		fmt.Println("Time out", timeOut)
+		time.Sleep(time.Duration(timeOut) * time.Second)
+		if err := db.DB.First(&sub, sub.ID).Error; err != nil {
+			log.Println("Failed to get submission", sub.ID, "error", err)
+			return
+		}
+		if sub.Status == "Pending" {
+			if err := db.DB.Model(&sub).Update("status", "Failed").Error; err != nil {
+				log.Println("Failed to update submission", sub.ID, "status", "Failed", "error", err)
+			}
+			log.Println("Submission", sub.ID, "status updated automatically to Failed")
+		}
+	}()
 
 	// Redirect to the submission detail page
 	c.Redirect(http.StatusSeeOther, fmt.Sprintf("/submissions/%d", sub.ID))
