@@ -124,7 +124,7 @@ Both programs read `config.yaml` from the working directory (or `./config/`), an
 | `/` | public | Landing page. Signed-in users are redirected to their profile. |
 | `/auth/login`, `/auth/register`, `/auth/logout` | public | Sign in, sign up (alphanumeric username, valid email, password of 6+ characters), sign out. |
 | `/questions/` | public | Published problems, 10 per page. Admins also see drafts. |
-| `/questions/:id` | public | Problem statement, limits, sample input and output, and the submit form. Drafts are visible only to their author and to admins. |
+| `/questions/:id` | public | Problem statement, time and memory limits, and the submit form. Drafts are visible only to their author and to admins. |
 | `/profile/:username` | public | A user's profile. |
 | `/profile` | signed in | Your own profile. |
 | `/questions/create`, `/questions/my`, `/questions/edit/:id` | signed in | Write a problem, list the problems you wrote, edit one of them. |
