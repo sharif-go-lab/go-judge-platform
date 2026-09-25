@@ -1,157 +1,181 @@
 # Go Judge Platform
 
-Go Judge Platform is a teaching-oriented online judge implemented in Go. It delivers end-to-end functionality for managing programming problems, running contests, and judging Go submissions inside isolated Docker containers. The repository includes both the HTTP application that students interact with and a lightweight code runner service for executing submissions.
+[![Go](https://img.shields.io/badge/Go-1.23-00ADD8?logo=go&logoColor=white)](go.mod)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-## Table of contents
+An online judge for Go, written in Go. Users sign up, read published problems and submit Go solutions from the browser. A separate code-runner service runs each submission in a throwaway Docker container with no network access and a memory cap, then compares the program's output with the problem's expected output.
 
-- [Features](#features)
-- [Architecture](#architecture)
-- [Tech stack](#tech-stack)
-- [Repository layout](#repository-layout)
-- [Configuration](#configuration)
-- [Running with Docker](#running-with-docker)
-- [Running locally for development](#running-locally-for-development)
-- [Database schema and migrations](#database-schema-and-migrations)
-- [Useful Go commands](#useful-go-commands)
-- [Contributing](#contributing)
+Any signed-in user can write a problem. It stays a draft until an admin publishes it. Admins also manage user roles.
 
 ## Features
 
-- **Authentication and sessions** – Cookie-based sessions keep users signed in. Passwords are hashed using bcrypt before being stored, and a default administrator account is seeded for first-time setups.【F:internal/db/db.go†L16-L67】
-- **Role-based access control** – Administrators can publish problems and manage user roles, while regular users can create drafts and submit solutions.【F:internal/handler/admin.go†L15-L116】【F:internal/handler/question.go†L15-L195】
-- **Problem lifecycle** – Problems can be drafted, edited, and published with time and memory limits, sample I/O, and ownership metadata.【F:internal/model/models.go†L16-L30】
-- **Submission pipeline** – Users submit Go code which is recorded as `Pending`, then evaluated by the code runner and updated with the final verdict (Accepted, Wrong Answer, Runtime Error, etc.).【F:internal/model/models.go†L32-L67】【F:internal/handler/submission.go†L20-L153】
-- **Self-service portals** – Users receive profile pages with per-problem statistics, submission history, and authoring dashboards. Administrators can promote/demote users directly from the UI.【F:internal/handler/profile.go†L14-L63】【F:internal/handler/admin.go†L15-L72】
-- **Isolated code execution** – Submissions are executed inside ephemeral Docker containers with enforced CPU, memory, and networking limits to protect the host environment.【F:cmd/code-runner/main.go†L18-L118】
-- **Configurable services** – All components read from `config.yaml` and can be driven by environment variables thanks to Viper, making deployments flexible.【F:internal/config/config.go†L9-L32】【F:config.yaml†L1-L12】
+- Registration and sign-in with bcrypt-hashed passwords and signed cookie sessions. You can sign in with either your username or your email.
+- Problems with a statement, time and memory limits, and a sample input with its expected output. Authors can edit their own problems, and admins can edit any of them.
+- Problems stay hidden until an admin publishes them. Regular users see published problems, 10 per page; admins see every problem and can publish or unpublish it.
+- Go submissions that are judged asynchronously. A submission is saved as `Pending`, and its page shows the verdict once the runner answers.
+- Sandboxed execution: each run gets its own `golang:1.24.2` container with `--network none`, the problem's memory limit, one CPU and at most 64 processes.
+- Submission history for each user. Admins can open anyone's submissions.
+- Public profile pages and an admin page for promoting and demoting users.
+- A server-rendered UI built with Gin and Go HTML templates. There is no JavaScript framework.
 
-## Architecture
-
-```
-+--------------------+        +------------------+
-|  HTTP server       | <----> | PostgreSQL       |
-|  (cmd/server)      |        | (users, problems |
-|  Gin templates     |        |  submissions)    |
-+---------+----------+        +---------+--------+
-          |                             ^
-          v                             |
-+---------+----------+        +---------+--------+
-| Internal REST APIs | <----> | Code runner      |
-| for judges         |        | (cmd/code-runner |
-|                    |        |  Docker sandbox) |
-+--------------------+        +------------------+
-```
-
-- The **web server** (Gin + templates) handles HTML rendering, authentication, and business logic for problems, submissions, and profiles.【F:cmd/server/main.go†L1-L55】
-- The **code runner** exposes a `/run` endpoint that accepts source code and test limits, then spins up a constrained Docker container to compile and execute the program.【F:cmd/code-runner/main.go†L18-L118】
-- Both components share the same configuration loader and talk to PostgreSQL via GORM models defined under `internal/model`.【F:internal/config/config.go†L9-L32】【F:internal/model/models.go†L5-L67】
-
-## Tech stack
-
-- Go 1.22+
-- Gin web framework with HTML templates
-- GORM ORM for PostgreSQL
-- Docker for secure execution
-- Viper for configuration management
-- bcrypt for password hashing
-
-## Repository layout
+## How it works
 
 ```
-cmd/
-  server/         # Web server entry point
-  code-runner/    # Submission execution service
-config.yaml       # Default configuration (used by docker-compose)
-internal/
-  config/         # Configuration bootstrap
-  db/             # Database initialization and seeding
-  handler/        # HTTP handlers grouped by feature
-  middleware/     # Shared Gin middleware
-  model/          # GORM models
-migrations/       # SQL migrations (PostgreSQL)
-static/, templates/ # Front-end assets and HTML templates
+ browser ──HTTP──► server (cmd/server, :8080)  ──GORM──►  PostgreSQL
+                     Gin + HTML templates                  users, problems,
+                     cookie sessions                       submissions
+                          │
+                          │ POST /run  (code, sample input/output, limits)
+                          ▼
+                   code-runner (cmd/code-runner, :9000)
+                          │
+                          │ docker run --rm --network none --memory … golang:1.24.2
+                          ▼
+                   one container per submission
 ```
 
-## Configuration
+When a user submits code, the server stores a `Submission` with status `Pending` and redirects to its page. In the background it sends the code, the problem's sample input and expected output, and the problem's limits to the runner at `http://code-runner:9000/run`. It then stores whatever verdict comes back. A second background timer marks the submission `Failed` if it is still pending after `server.submission_time_out` seconds (100 in the bundled `config.yaml`).
 
-Configuration is read in this order: environment variables, `config.yaml`, then baked-in defaults. Nested keys use dot notation which maps to environment variables via `.` → `_` replacement (for example `SERVER_LISTEN`).【F:internal/config/config.go†L9-L32】
+The runner writes the code to `main.go` inside a fresh container and runs it with `go run`, piping the sample input to stdin. It picks the verdict from the exit code and the output:
 
-Key settings include:
+| Outcome | Verdict |
+|---|---|
+| Exit code 0, nothing on stderr, and stdout equals the expected output (surrounding whitespace ignored) | `Accepted` |
+| Exit code 0 and nothing on stderr, but the output differs | `Wrong Answer` |
+| Exit code 0 with something written to stderr | `Runtime Error` |
+| Exit code 137 (the container was killed, usually for exceeding the memory limit) | `Memory Limit Exceeded` |
+| Exit code 139 (segmentation fault) | `Runtime Error` |
+| Exit code 124 | `Time Limit Exceeded` |
+| Any other non-zero exit code, including a failed compile | `Compilation Error` |
+| The runner can't be reached, returns something unreadable, or doesn't answer in time | `Failed` (set by the server) |
 
-| Key | Description | Default |
-| --- | ----------- | ------- |
-| `server.listen` | Address Gin listens on | `:8080` |
-| `code_runner.listen` | Address code runner listens on | `:9000` |
-| `code_runner.judge_dockerfile` | Path to the Dockerfile injected into the runner container | `./judge.Dockerfile` |
-| `database.dsn` | PostgreSQL DSN string | `postgres://user:pass@localhost:5432/go_judge?sslmode=disable` |
-| `session.secret` | Cookie signing key | `super-secret-key` |
+The runner needs the Docker CLI and access to the host's Docker socket. In Docker Compose the socket is mounted into the runner container at `/var/run/docker.sock`.
 
-When booting via Docker Compose the bundled `config.yaml` sets the DSN, ports, and secrets to match the containers.【F:config.yaml†L1-L12】
+## Quick start with Docker Compose
 
-## Running with Docker
+`docker-compose.yaml` starts PostgreSQL 15, the server and the code runner:
 
-1. Ensure Docker (and optionally Docker Compose v2) is installed and that your user can access the Docker daemon (required by the code runner).
-2. Copy `config.yaml` if you need to adjust secrets or ports before starting.
-3. Start the stack:
+```bash
+docker compose up --build
+```
+
+Then open http://localhost:8080. On first start the server creates an admin account:
+
+| Username | Password |
+|---|---|
+| `admin` | `admin123` |
+
+There's no page for changing a password yet, so don't expose the app to other people with this account in place.
+
+The compose file builds the server from `cmd/server/Dockerfile` and the runner from `cmd/code-runner/Dockerfile`. Neither file is in the repository at the moment, because `.gitignore` ignores every file named `Dockerfile`. Add both files, and force-add them with `git add -f`, before running the command above from a fresh clone. The runner's image needs the Docker CLI, and it needs `judge.Dockerfile` at the path set in `code_runner.judge_dockerfile` (the runner rejects every run if it can't read that file).
+
+## Running without Docker Compose
+
+You still need Docker, both for PostgreSQL and for the containers that run submissions.
+
+1. Start PostgreSQL:
 
    ```bash
-   docker compose up --build
+   docker run -d --name go-judge-db -p 5432:5432 \
+     -e POSTGRES_USER=myuser -e POSTGRES_PASSWORD=mysecurepassword -e POSTGRES_DB=go_judge \
+     postgres:15
    ```
 
-   This brings up PostgreSQL, the web server (`cmd/server`), and the code runner (`cmd/code-runner`).【F:docker-compose.yaml†L1-L38】
-
-4. Visit http://localhost:8080 and log in using the seeded administrator (`admin` / `admin123`). Change the password immediately from the profile page.
-
-The code runner container mounts `/var/run/docker.sock` read-only so it can launch sandboxed containers for each submission.【F:docker-compose.yaml†L23-L36】
-
-## Running locally for development
-
-1. **Start PostgreSQL** locally or in Docker. The DSN must match `database.dsn`.
-2. **Set environment variables** or edit `config.yaml` to point at your database and set a `session.secret`.
-3. **Run migrations** (see next section) if you prefer SQL files; otherwise the server will auto-migrate tables on startup.【F:internal/db/db.go†L24-L49】
-4. **Run the web server**:
+2. Start the server from the repository root, pointing it at that database:
 
    ```bash
+   export DATABASE_DSN="host=localhost user=myuser password=mysecurepassword dbname=go_judge sslmode=disable"
    go run ./cmd/server
    ```
 
-   The server loads configuration, establishes DB connections, registers templates, and listens on `server.listen`.【F:cmd/server/main.go†L1-L55】
+   The server creates or updates its tables with GORM on every start.
 
-5. **Run the code runner** in a separate terminal:
+3. Start the runner in another terminal:
 
    ```bash
-   go run ./cmd/code-runner
+   CODE_RUNNER_JUDGE_DOCKERFILE=cmd/code-runner/judge.Dockerfile go run ./cmd/code-runner
    ```
 
-   Keep Docker running in the background so submissions can be executed.【F:cmd/code-runner/main.go†L18-L118】
+   Pull the image once with `docker pull golang:1.24.2` so the first submission doesn't wait for the download.
 
-6. Access the UI at `http://localhost:8080`. The default admin user is seeded automatically if none exists.【F:internal/db/db.go†L34-L67】
+4. The server always calls the runner at the hostname `code-runner`. Outside Compose, make that name resolve to your machine:
 
-## Database schema and migrations
+   ```bash
+   echo "127.0.0.1 code-runner" | sudo tee -a /etc/hosts
+   ```
 
-- GORM auto-migrates the schema for users, problems, submissions, sessions, and test cases whenever the server boots.【F:internal/db/db.go†L28-L49】
-- SQL migrations are provided under `migrations/` for environments where declarative migrations are preferred. These scripts cover table creation and later schema adjustments.【F:migrations/0001_create_users.up.sql†L1-L33】【F:migrations/0007_add_sample_fields_to_problems.up.sql†L1-L17】
-- To run the SQL migrations manually you can use the [`golang-migrate`](https://github.com/golang-migrate/migrate) CLI:
+## Configuration
 
-  ```bash
-  migrate -path migrations -database "$DATABASE_DSN" up
-  ```
+Both programs read `config.yaml` from the working directory (or `./config/`), and environment variables override it. An environment variable's name is the key in upper case with dots replaced by underscores, so `database.dsn` becomes `DATABASE_DSN`.
 
-  Replace `$DATABASE_DSN` with your PostgreSQL connection string.
+| Key | Used by | Default | Value in `config.yaml` |
+|---|---|---|---|
+| `server.listen` | server | `:8080` | `:8080` |
+| `server.submission_time_out` | server | none | `100` (seconds before a pending submission becomes `Failed`) |
+| `database.dsn` | server | `postgres://user:pass@localhost:5432/go_judge?sslmode=disable` | points at the `db` service from Compose |
+| `session.secret` | server | `super-secret-key` | a fixed random string (replace it for any real deployment) |
+| `code_runner.listen` | runner and server | `:9000` | `:9000` |
+| `code_runner.judge_dockerfile` | runner | none | `./judge.Dockerfile` |
 
-## Useful Go commands
+## Pages
 
-The project does not ship with a `Makefile`, but you can use native Go tooling:
+| Path | Access | What it does |
+|---|---|---|
+| `/` | public | Landing page. Signed-in users are redirected to their profile. |
+| `/auth/login`, `/auth/register`, `/auth/logout` | public | Sign in, sign up (alphanumeric username, valid email, password of 6+ characters), sign out. |
+| `/questions/` | public | Published problems, 10 per page. Admins also see drafts. |
+| `/questions/:id` | public | Problem statement, limits, sample input and output, and the submit form. Drafts are visible only to their author and to admins. |
+| `/profile/:username` | public | A user's profile. |
+| `/profile` | signed in | Your own profile. |
+| `/questions/create`, `/questions/my`, `/questions/edit/:id` | signed in | Write a problem, list the problems you wrote, edit one of them. |
+| `/submissions/`, `/submissions/:id` | signed in | Your submissions and a single submission with its code and verdict. |
+| `POST /submissions/submit/:question_id` | signed in | Submit code for a problem. |
+| `/admin/users` | admin | List users; promote or demote them. |
+| `POST /admin/questions/publish/:id`, `POST /admin/questions/unpublish/:id` | admin | Publish or unpublish a problem. |
 
-- `go run ./cmd/server` – start the web server with HTML templates.
-- `go run ./cmd/code-runner` – start the sandboxed execution service.
-- `go test ./...` – execute unit tests (add your own as the project evolves).
+The runner has one endpoint, `POST /run`, which takes JSON with `code`, `sample_input`, `sample_output`, `time_limit` (ms) and `memory_limit` (MB), and returns `{"result": "<verdict>"}`, plus `stdout` or `stderr` for some verdicts.
 
-## Contributing
+## Database
 
-1. Fork the repository and clone it locally.
-2. Create a feature branch and make your changes.
-3. Run `go fmt ./...` and `go test ./...` to ensure code quality.
-4. Submit a pull request describing your changes and screenshots when touching the UI templates.
+The server creates and updates its tables (`users`, `problems`, `submissions`, `sessions`, `test_cases`) with GORM's auto-migration on startup. The `migrations/` folder has the same schema as plain SQL files, in case you prefer to manage it with [golang-migrate](https://github.com/golang-migrate/migrate):
 
-Contributions that improve the judging pipeline, add language support, or tighten security are especially welcome!
+```bash
+migrate -path migrations -database "$DATABASE_URL" up
+```
+
+## Project layout
+
+```
+cmd/
+  server/                 web application (Gin, templates, sessions)
+  code-runner/            judging service and judge.Dockerfile
+internal/
+  config/                 Viper setup: defaults, config.yaml, environment
+  db/                     connection, auto-migration, default admin
+  handler/                pages and form handlers, grouped by feature
+  middleware/             sign-in and admin checks
+  model/                  GORM models and the runner's request type
+migrations/               SQL schema for golang-migrate
+templates/                HTML templates (layout, auth, questions, submissions, profile, admin)
+static/                   CSS and a small script
+config.yaml               configuration used with Docker Compose
+docker-compose.yaml       PostgreSQL, server and runner
+```
+
+## Limitations
+
+- Only Go is supported, and each submission is checked against the problem's single sample input and output. The `test_cases` table exists but isn't used for judging yet.
+- The time limit is sent to the runner but not enforced inside the container, so a submission that never finishes ends up as `Failed` after `server.submission_time_out` seconds instead of `Time Limit Exceeded`.
+- A panic (exit code 2) is reported as `Compilation Error`, because every non-zero exit code other than 124, 137 and 139 maps to that verdict.
+- The profile's solved count looks for the status `accepted`, while the runner stores `Accepted`, so it currently shows 0 solved problems.
+- The runner has no authentication, and whoever can reach port 9000 can start containers through the host's Docker socket. Keep that port private.
+- Sessions live in a signed cookie. The `sessions` table is created but not used.
+
+## Authors
+
+- [Kasra Siavashpour](https://github.com/kasra-sia)
+- [Ardalan Siavashpour](https://github.com/Ardalan-Sia)
+
+## License
+
+[MIT](LICENSE)
