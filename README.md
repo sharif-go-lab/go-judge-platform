@@ -7,6 +7,18 @@ An online judge for Go, written in Go. Users sign up, read published problems an
 
 Any signed-in user can write a problem. It stays a draft until an admin publishes it. Admins also manage user roles.
 
+## Screenshots
+
+These come from a local run with two demo users and five demo problems. Every verdict shown was produced by the code runner judging the submitted program.
+
+| Published problems | Solving a problem |
+|---|---|
+| ![List of published problems with their time and memory limits](docs/screenshots/problems.png) | ![FizzBuzz problem page with Go code in the submit form](docs/screenshots/problem.png) |
+| A user's submissions and their verdicts | A submission and its code |
+| ![Submission history with Accepted, Compilation Error and Wrong Answer verdicts](docs/screenshots/submissions.png) | ![Accepted FizzBuzz submission with syntax-highlighted Go code](docs/screenshots/submission.png) |
+| Admin view of the problems, including a draft | Admin page for promoting and demoting users |
+| ![Admin problem list with Publish and Unpublish buttons](docs/screenshots/admin-problems.png) | ![User list with Promote buttons](docs/screenshots/admin-users.png) |
+
 ## Features
 
 - Registration and sign-in with bcrypt-hashed passwords and signed cookie sessions. You can sign in with either your username or your email.
